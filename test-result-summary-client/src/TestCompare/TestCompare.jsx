@@ -44,6 +44,20 @@ export default class TestCompare extends Component {
             } );
             const res = await response.json();
             if ( res && res.output ) {
+                // remove timeStamp
+                let curOutput = res.output.replace(/\[\d{4}-\d{2}-\d{2}.*?\] /g, "");
+                // remove beginning setup info and end test info
+                let startWords = "Running Java Driver:";
+                let endWords = "deepSmith_0_";
+                curOutput = curOutput.substring(curOutput.indexOf(startWords), curOutput.lastIndexOf(endWords));
+                // remove @XXXX format, e.g. @3b995
+                curOutput = curOutput.replace(/@\w+/g, "@");
+                // remove exception code location, e.g. Thread.java:832 -> Thread.java:
+                curOutput = curOutput.replace(/.java:\d+/g, ".java:");
+                // remove extra outputs for Exception, e.g. NegativeArraySizeException: -1238
+                curOutput = curOutput.replace(/Exception:?\s*-?\w*/g, "Exception");
+     
+                res.output = curOutput;
                 this.state.tests[i] = res;
             } else {
                 alert( "Cannot find data! Please check your input values." );
