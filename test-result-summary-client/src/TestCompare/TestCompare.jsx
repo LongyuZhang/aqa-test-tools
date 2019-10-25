@@ -44,6 +44,16 @@ export default class TestCompare extends Component {
             } );
             const res = await response.json();
             if ( res && res.output ) {
+                // curOutput = res.output.replace(/\[.*?\] /g, "");  https://hyc-runtimes-jenkins.swg-devops.com
+                // let curOutput = res.output.replace(/^\[\d{4}-\d{2}-\d{2}.*?\] /g, "");
+                // remove timeStamp
+                let curOutput = res.output.replace(/\[\d{4}-\d{2}-\d{2}.*?\] /g, "");
+                // remove beginning setup info and end test info
+                let startWords = "Running Java Driver:";
+                let endWords = "deepSmith_0_";
+                curOutput = curOutput.substring(curOutput.indexOf(startWords), curOutput.lastIndexOf(endWords));
+                
+                res.output = curOutput;
                 this.state.tests[i] = res;
             } else {
                 alert( "Cannot find data! Please check your input values." );
