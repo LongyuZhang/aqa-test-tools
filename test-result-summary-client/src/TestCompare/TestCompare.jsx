@@ -1,5 +1,5 @@
 import React, { Component } from 'react';
-import { Row, Col, Button } from 'antd';
+import { Row, Col, Button, Checkbox } from 'antd';
 import TestInfo from './TestInfo'
 import $ from 'jquery';
 
@@ -16,7 +16,9 @@ export default class TestCompare extends Component {
         }, {
             url: "https://ci.eclipse.org/openj9", buildName: "Test-Sanity-JDK10-aix_ppc-64_cmprssptrs", buildNum: 35, testName: "jit_jitt_3"
         }],
-        tests: [{}, {}]
+        tests: [{}, {}],
+        timeStamp: false,
+        deepSmith: false
     }
 
     componentDidMount() {
@@ -33,6 +35,15 @@ export default class TestCompare extends Component {
         this.setState( this.state );
     };
 
+    toggleTimeStamp = () => {
+        this.setState({ timeStamp: !this.state.timeStamp });
+    }
+
+    toggleDeepSmith = () => {
+        this.setState({ deepSmith: !this.state.deepSmith });
+    }
+
+
     handleCompare = async () => {
         $( this.compare ).mergely( 'lhs', '' );
         $( this.compare ).mergely( 'rhs', '' );
@@ -44,19 +55,26 @@ export default class TestCompare extends Component {
             } );
             const res = await response.json();
             if ( res && res.output ) {
-                // remove timeStamp
-                let curOutput = res.output.replace(/\[\d{4}-\d{2}-\d{2}.*?\] /g, "");
-                // remove beginning setup info and end test info
-                let startWords = "Running Java Driver:";
-                let endWords = "deepSmith_0_";
-                curOutput = curOutput.substring(curOutput.indexOf(startWords), curOutput.lastIndexOf(endWords));
-                // remove @XXXX format, e.g. @3b995
-                curOutput = curOutput.replace(/@\w+/g, "@");
-                // remove exception code location, e.g. Thread.java:832 -> Thread.java:
-                curOutput = curOutput.replace(/.java:\d+/g, ".java:");
-                // remove extra outputs for Exception, e.g. NegativeArraySizeException: -1238
-                curOutput = curOutput.replace(/Exception:?\s*-?\w*/g, "Exception");
-     
+                let curOutput = res.output;
+                if (this.state.timeStamp === false) {
+                    // remove timeStamp
+                    curOutput = res.output.replace(/\[\d{4}-\d{2}-\d{2}.*?\] /g, "");
+                }
+                if (this.state.deepSmith === true) {
+                    // remove beginning setup info and end test info
+                    let startWords = "Running Java Driver:";
+                    let endWords = "deepSmith_0_";
+                    curOutput = curOutput.substring(curOutput.indexOf(startWords), curOutput.lastIndexOf(endWords));
+                    // remove @XXXX format, e.g. @3b995
+                    curOutput = curOutput.replace(/@\w+/g, "@");
+                    // remove exception code location, e.g. Thread.java:832 -> Thread.java:
+                    curOutput = curOutput.replace(/.java:\d+/g, ".java:");
+                    // remove extra outputs for Exception, e.g. NegativeArraySizeException: -1238
+                    curOutput = curOutput.replace(/Exception.*/g, "Exception");
+                    // match getConstructor0 to newNoSuchMethodException
+                    curOutput = curOutput.replace(/getConstructor0.*/g, "newNoSuchMethodException");
+
+                }     
                 res.output = curOutput;
                 this.state.tests[i] = res;
             } else {
@@ -82,6 +100,8 @@ export default class TestCompare extends Component {
             </Row>
             <Row>
                 <Col span={24} style={{ textAlign: 'right' }}>
+                    <Checkbox onChange={this.toggleTimeStamp}>TimeStamp</Checkbox>
+                    <Checkbox onChange={this.toggleDeepSmith}>DeepSmith_Match</Checkbox>
                     <Button type="primary" onClick={this.handleCompare}>Compare</Button>
                     <Button style={{ marginLeft: 8 }} onClick={this.handleReset}>Clear</Button>
                 </Col>
