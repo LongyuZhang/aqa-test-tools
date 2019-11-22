@@ -43,7 +43,6 @@ export default class TestCompare extends Component {
         this.setState({ deepSmith: !this.state.deepSmith });
     }
 
-
     handleCompare = async () => {
         $( this.compare ).mergely( 'lhs', '' );
         $( this.compare ).mergely( 'rhs', '' );
@@ -57,78 +56,10 @@ export default class TestCompare extends Component {
             if ( res && res.output ) {
                 let curOutput = res.output;
                 if (this.state.timeStamp === false) {
-                    // remove timeStamp
-                    curOutput = res.output.replace(/\[\d{4}-\d{2}-\d{2}.*?\] /g, "");
+                    curOutput = this.removeTimeStamp(curOutput);
                 }
                 if (this.state.deepSmith === true) {
-                    // remove beginning setup info and end test info
-                    let startWords = "Running Java Driver:";
-                    let endWords = "deepSmith_0_";
-                    curOutput = curOutput.substring(curOutput.indexOf(startWords), curOutput.lastIndexOf(endWords));
-                    // split tests
-                    let testStartWords = "Current TEST_NAME ";
-                    let testsAll = curOutput.split(testStartWords);
-
-                    // process each test and attach to curOutput
-                    curOutput = "";
-                    for (let index = 0; index < testsAll.length; index++)
-                    {
-                        let curTestFinal = "";
-                        // split test into fields (name, content, exception, output)
-                        let testKey = "Current TEST_"
-                        let testPartsTotal = 4;
-                        let testParts = testsAll[index].split(testKey);
-                        if(testParts.length === testPartsTotal)
-                        {
-                            // 0 name
-                            curOutput += testStartWords + testParts[0];
-                            // 1 content
-                            curOutput += testKey + testParts[1];
-                            let ignoreResultFlag = false;
-                            let ignoreResultWord = "";
-                            let ignoreWordsList = ["hashCode", "Random", "random", "nanoTime", "getRuntime"];
-                            for(let ignoreWord of ignoreWordsList)
-                            {
-                                if(testParts[1].indexOf(ignoreWord) > -1 )
-                                {
-                                    ignoreResultFlag = true;
-                                    ignoreResultWord = ignoreWord;
-                                    break;
-                                }
-                            }
-                            // 2 exception: find Exception name only
-                            let exceptionName = testParts[2].match(/\w*Exception[:\s]/g);
-                            if ( exceptionName === null)
-                            {
-                                curOutput += testKey + "EXCEPTION is None \n";
-                            }
-                            else
-                            {
-                                curOutput += testKey + "EXCEPTION is " + exceptionName[0] + "\n";
-                            }
-                            // 3 output
-                            if(ignoreResultFlag == true)
-                            {
-                                curOutput += testKey + "OUTPUT is " + ignoreResultWord + "_value \n\n";                                
-                            }
-                            else
-                            {
-                                // remove @XXXX format, e.g. @3b995
-                                testParts[3] = testParts[3].replace(/@\w+/g, "@");
-                                curOutput += testKey + testParts[3];
-                            }
-                        }                        
-                    }
-
-                    // // remove @XXXX format, e.g. @3b995
-                    // curOutput = curOutput.replace(/@\w+/g, "@");
-                    // // remove exception code location, e.g. Thread.java:832 -> Thread.java:
-                    // curOutput = curOutput.replace(/.java:\d+/g, ".java:");
-                    // // remove extra outputs for Exception, e.g. NegativeArraySizeException: -1238
-                    // curOutput = curOutput.replace(/Exception.*/g, "Exception");
-                    // // match getConstructor0 to newNoSuchMethodException
-                    // curOutput = curOutput.replace(/getConstructor0.*/g, "newNoSuchMethodException");
-
+                    curOutput = this.matchDeepSmith(curOutput);
                 }     
                 res.output = curOutput;
                 this.state.tests[i] = res;
@@ -141,6 +72,66 @@ export default class TestCompare extends Component {
 
         $( this.compare ).mergely( 'lhs', this.state.tests[0].output );
         $( this.compare ).mergely( 'rhs', this.state.tests[1].output );
+    }
+
+    removeTimeStamp = (inputText) => {
+        return inputText.replace(/\[\d{4}-\d{2}-\d{2}.*?\] /g, "");
+    }
+
+    matchDeepSmith = (inputText) => {
+        // remove beginning and bottom build info
+        let startWords = "Running Java Driver:";
+        let endWords = "deepSmith_0_";
+        inputText = inputText.substring(inputText.indexOf(startWords), inputText.lastIndexOf(endWords));
+        
+        // split tests and store in lists
+        let testStartWords = "Current TEST_NAME ";
+        let testsAll = inputText.split(testStartWords);
+
+        // process each test and attach to curOutput
+        let curOutput = "";
+        for (let index = 0; index < testsAll.length; index++) {
+            // split test into four fields (name, content, exception, output)
+            let testKey = "Current TEST_"
+            let testPartsTotal = 4;
+            let testParts = testsAll[index].split(testKey);
+            if(testParts.length !== testPartsTotal) {
+                // For abnormal situation when parts not enough, attach all to compare later
+                curOutput += testStartWords + testsAll[index];
+            } else {
+                // Part 0 test name
+                curOutput += testStartWords + testParts[0];
+                // Part 1 test content
+                curOutput += testKey + testParts[1];
+                let ignoreResultFlag = false;
+                let ignoreResultWord = "";
+                let ignoreResultWordsList = ["hashCode", "Random", "random", "nanoTime", "getRuntime"];
+                for(let ignoreWord of ignoreResultWordsList) {
+                    if(testParts[1].indexOf(ignoreWord) > -1 ) {
+                        ignoreResultFlag = true;
+                        ignoreResultWord = ignoreWord;
+                        break;
+                    }
+                }
+                // Part 2 exception: find Exception name only
+                let exceptionName = testParts[2].match(/\w*Exception[:\s]/g);
+                if ( exceptionName === null) {
+                    curOutput += testKey + "EXCEPTION is None \n";
+                } else {
+                    let printExceptionName = exceptionName[0].substring(0, exceptionName[0].length - 1);
+                    curOutput += testKey + "EXCEPTION is: " + printExceptionName + "\n";
+                }
+                // Part 3 output
+                if(ignoreResultFlag === true) {
+                    curOutput += testKey + "OUTPUT is " + ignoreResultWord + "_value \n\n";                                
+                } else {
+                    // remove @XXXX format, e.g. object@3b995
+                    testParts[3] = testParts[3].replace(/@\w+/g, "@");
+                    curOutput += testKey + testParts[3];
+                }
+            }                        
+        }
+        return curOutput;
     }
 
     render() {
