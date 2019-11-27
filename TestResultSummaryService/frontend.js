@@ -11,8 +11,9 @@ const { logger } = require( './Utils' );
 
 app.use( compression() ); // GZIP all assets
 app.use( cors() );
-app.use( bodyParser.urlencoded( { extended: true } ) ); // support encoded bodies
-app.use( bodyParser.json() ); // support json encoded bodies
+app.use( bodyParser.text({ type: "text/plain", limit: '16mb' }));
+app.use( bodyParser.json({ limit: '16mb' })); // support json encoded bodies
+app.use( bodyParser.urlencoded({ limit: '16mb', extended: true })); // support encoded bodies
 
 app.use( '/api', routes );
 
