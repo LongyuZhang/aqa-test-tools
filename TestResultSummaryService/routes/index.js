@@ -30,6 +30,7 @@ app.get( '/getTestPerPlatform', wrap( require( "./getTestPerPlatform" ) ) );
 app.get( '/getTopLevelBuildNames', wrap( require( "./getTopLevelBuildNames" ) ) );
 app.get( '/getTotals', wrap( require( "./getTotals" ) ) );
 app.get( '/populateDB', wrap( require( "./populateDB" ) ) );
+app.get( '/getDeepSmithDataCompare', wrap( require( "./getDeepSmithDataCompare" ) ) );
 
 
 app.post( '/getParentSpecificData', wrap( require( "./getParentSpecificData" ) ) );
