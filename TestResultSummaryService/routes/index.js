@@ -35,5 +35,6 @@ app.get( '/populateDB', wrap( require( "./populateDB" ) ) );
 app.post( '/getParentSpecificData', wrap( require( "./getParentSpecificData" ) ) );
 app.post( '/getSpecificData', wrap( require( "./getSpecificData" ) ) );
 app.post( '/upsertBuildList', wrap( require( "./upsertBuildList" ) ) );
+app.post( '/getDeepSmithDataCompare', wrap( require( "./getDeepSmithDataCompare" ) ) );
 
 module.exports = app;
