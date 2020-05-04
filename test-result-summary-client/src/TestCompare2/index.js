@@ -1,0 +1,1 @@
+export { default as TestCompare2 } from "./TestCompare2";

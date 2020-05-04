@@ -8,6 +8,7 @@ import { Dashboard } from './Dashboard/';
 import ErrorBoundary from './ErrorBoundary';
 import { Output } from './Build/Output/';
 import { TestCompare } from './TestCompare/';
+import { TestCompare2 } from './TestCompare2/';
 import { PerfCompare } from './PerfCompare/';
 import { TabularView } from './TabularView/';
 import { AllTestsInfo, BuildDetail, DeepHistory, TestPerPlatform, TopLevelBuilds, ResultSummary } from './Build/';
@@ -52,6 +53,7 @@ export default class App extends Component {
                                 <Menu.Item key="sub3"><Link to="/tabularView">Tabular View</Link></Menu.Item>
                             </SubMenu>
                             <Menu.Item key="4"><Link to="/dashboard">Dashboard</Link></Menu.Item>
+                            <Menu.Item key="5"><Link to="/testCompare2">Test Compare2</Link></Menu.Item>
                         </Menu>
                     </Sider>
                     <Layout style={{ padding: '0 24px 24px' }}>
@@ -64,6 +66,7 @@ export default class App extends Component {
                                 <Route path="/output/:outputType" component={Output} />
                                 <Route path="/deepHistory" component={DeepHistory} />
                                 <Route path="/testCompare" component={TestCompare} />
+                                <Route path="/testCompare2" component={TestCompare2} />
                                 <Route path="/perfCompare" component={PerfCompare} />
                                 <Route path="/tabularView" component={TabularView} />
                                 <Route path="/buildDetail" component={BuildDetail} />

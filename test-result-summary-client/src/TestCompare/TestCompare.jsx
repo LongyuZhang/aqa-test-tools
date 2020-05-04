@@ -2,6 +2,7 @@ import React, { Component } from 'react';
 import { Row, Col, Button, Checkbox } from 'antd';
 import TestInfo from './TestInfo'
 import $ from 'jquery';
+import { parseJenkinsUrl } from '../utils/parseJenkinsUrl';
 
 require('codemirror');
 require('codemirror/lib/codemirror.css');
@@ -12,9 +13,9 @@ export default class TestCompare extends Component {
     state = {
         copy: { url: true, buildName: true, buildNum: true, testName: false },
         forms: [{
-            url: "https://ci.eclipse.org/openj9", buildName: "Test-Sanity-JDK10-aix_ppc-64_cmprssptrs", buildNum: 36, testName: "jit_jitt_3"
+            type: "Baseline", url: "https://ci.adoptopenjdk.net/job/Test_openjdk11_hs_sanity.openjdk_ppc64le_linux/208/", testName: "jdk_svc_sanity_0"
         }, {
-            url: "https://ci.eclipse.org/openj9", buildName: "Test-Sanity-JDK10-aix_ppc-64_cmprssptrs", buildNum: 35, testName: "jit_jitt_3"
+            type: "Comparison", url: "https://ci.adoptopenjdk.net/view/Test_openjdk/job/Test_openjdk11_hs_sanity.openjdk_ppc64le_linux/208/", testName: "jdk_svc_sanity_0"
         }],
         tests: [{}, {}],
         removeTimestampFlag: false,
@@ -48,19 +49,42 @@ export default class TestCompare extends Component {
         $( this.compare ).mergely( 'rhs', '' );
 
         for ( var i = 0; i < this.state.forms.length; i++ ) {
-            const { url, buildName, buildNum, testName } = this.state.forms[i];
+            const { type, url, testName } = this.state.forms[i];
+            const { errorMsg, serverUrl, buildName, buildNum } = parseJenkinsUrl( url, type );
             const { removeTimestampFlag, applyDeepSmithMatchFlag } = this.state;
-            const queryForGetOutput = "/api/getOutputByTestInfo?url=" + encodeURIComponent( url ) 
-                                + "&buildName=" + encodeURIComponent( buildName ) 
-                                + "&buildNum=" + buildNum + "&testName=" + testName 
-                                + "&removeTimestampFlag=" + removeTimestampFlag
-                                + "&applyDeepSmithMatchFlag=" + applyDeepSmithMatchFlag;
-            const response = await fetch( queryForGetOutput, { method: 'get' } );
-            const res = await response.json();
-            if ( res && res.output ) {
-                this.state.tests[i] = res;
+            if (!errorMsg) {
+                let queryForGetOutput = "";
+                if (testName) {
+                    queryForGetOutput = "/api/getOutputByTestInfo?url=" + encodeURIComponent( serverUrl ) 
+                                    + "&buildName=" + encodeURIComponent( buildName ) 
+                                    + "&buildNum=" + buildNum + "&testName=" + testName 
+                                    + "&removeTimestampFlag=" + removeTimestampFlag
+                                    + "&applyDeepSmithMatchFlag=" + applyDeepSmithMatchFlag;
+                } else {
+                    const initialQueryForBuildID = "/api/getTestInfoByBuildInfo?url=" + serverUrl 
+                                    + "&buildName=" + buildName
+                                    + "&buildNum=" + buildNum;
+                    const queryIDResponse = await fetch( initialQueryForBuildID, { method: 'get' } );
+                    const queryIDRes = await queryIDResponse.json();
+                    if ( !(queryIDRes && queryIDRes.testInfo[0].buildOutputId)) {
+                        alert( "Cannot find data! Please check your input values." );
+                        return;
+                    }
+                    queryForGetOutput = "/api/getOutputById?id=" + queryIDRes.testInfo[0].buildOutputId
+                                    + "&removeTimestampFlag=" + removeTimestampFlag
+                                    + "&applyDeepSmithMatchFlag=" + applyDeepSmithMatchFlag;
+                }
+                const response = await fetch( queryForGetOutput, { method: 'get' } );
+                const res = await response.json();
+                console.log(res);
+                if ( res && res.output ) {
+                    this.state.tests[i] = res;
+                } else {
+                    alert( "Cannot find data! Please check your input values." );
+                    return;
+                }
             } else {
-                alert( "Cannot find data! Please check your input values." );
+                alert( errorMsg );
                 return;
             }
         }
@@ -72,13 +96,9 @@ export default class TestCompare extends Component {
 
     render() {
         return <div>
-            <Row gutter={24}>
-                <Col span={12}>
-                    <TestInfo data={this.state.forms[0]} onChange={this.onChange.bind( null, 0 )} />
-                </Col>
-                <Col span={12}>
-                    <TestInfo data={this.state.forms[1]} onChange={this.onChange.bind( null, 1 )} />
-                </Col>
+            <Row>
+                <TestInfo data={this.state.forms[0]} onChange={this.onChange.bind( null, 0 )} />
+                <TestInfo data={this.state.forms[1]} onChange={this.onChange.bind( null, 1 )} />
             </Row>
             <Row>
                 <Col span={24} style={{ textAlign: 'right' }}>
