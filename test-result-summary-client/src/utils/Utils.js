@@ -20,6 +20,14 @@ export const getInfoFromBuildName = (buildName) => {
     return null;
 };
 
+export const removeAfterSecondLastUnderscore = (buildName) => {
+    const lastIdx = buildName.lastIndexOf('_');
+    if (lastIdx === -1) return buildName;
+    const lastSecondIdx = buildName.slice(0, lastIdx).lastIndexOf('_');
+    if (lastSecondIdx === -1) return buildName;
+    return buildName.slice(0, lastSecondIdx);
+};
+
 export const setBuildsStatus = (build, currStatus) => {
     const buildResultPriority = {
         PROGRESSING: 5,

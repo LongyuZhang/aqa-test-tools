@@ -8,10 +8,15 @@ import {
     WarningOutlined,
     ProfileTwoTone,
 } from '@ant-design/icons';
-import { fetchData, getInfoFromBuildName } from '../utils/Utils';
+import {
+    fetchData,
+    getInfoFromBuildName,
+    removeAfterLastUnderscore,
+    removeAfterSecondLastUnderscore,
+} from '../utils/Utils';
 import { params } from '../utils/query';
 import { Button } from '../Components/Button';
-import _, { first, identity, uniq } from 'lodash';
+import _, { first, identity, lastIndexOf, uniq } from 'lodash';
 function TrafficLight() {
     const [topBuild, setTopBuild] = useState();
     const [topBuildOptions, setTopBuildOptions] = useState([]);
@@ -59,21 +64,91 @@ function TrafficLight() {
         // If the testData and baselineData are from the same build,
         // use aggregateInfo.BuildName Perf_openjdkxxx_baseline as baseline build.
         // Otherwise, use aggregateInfo.BuildName Perf_openjdkxxx_test as baseline build.
-        if (baselineBuild === testBuild) {
-            baselineData = await fetchData(
-                `/api/getTrafficLightData?parentId=${baselineBuild}&buildType=baseline`
-            );
-        } else {
-            baselineData = await fetchData(
-                `/api/getTrafficLightData?parentId=${baselineBuild}&buildType=test`
-            );
+        let originBaselineBuildType = 'baseline';
+        if (baselineBuild !== testBuild) {
+            originBaselineBuildType = 'test';
         }
-        testData.forEach((element) => {
-            element.buildType = 'test';
-        });
-        baselineData.forEach((element) => {
-            element.buildType = 'baseline';
-        });
+        baselineData = await fetchData(
+            `/api/getTrafficLightData?parentId=${baselineBuild}&buildType=${originBaselineBuildType}`
+        );
+
+        let testJavaVersionMap = new Map();
+        for (const testChildData of testData) {
+            testChildData.buildType = 'test';
+            const buildNameWithPlatform = testChildData.buildName.slice(
+                0,
+                lastIndexOf('_')
+            );
+            if (!testJavaVersionMap.has(buildNameWithPlatform)) {
+                let testGrandchildrenData = await fetchData(
+                    `/api/getChildBuilds?parentId=${testChildData._id}`
+                );
+                for (const testGrandchildData of testGrandchildrenData) {
+                    if (
+                        testGrandchildData.buildName.includes('_test') &&
+                        testGrandchildData.javaVersion
+                    ) {
+                        const curbuildNameWithPlatform =
+                            removeAfterSecondLastUnderscore(
+                                testGrandchildData.buildName
+                            );
+                        testJavaVersionMap.set(
+                            curbuildNameWithPlatform,
+                            testGrandchildData.javaVersion
+                        );
+                        break;
+                    }
+                }
+            }
+        }
+        console.log(testJavaVersionMap);
+
+        let baselineJavaVersionMap = new Map();
+        // baselineData.forEach((element) => {
+        //     element.buildType = 'baseline';
+        // });
+        for (const baselineChildData of baselineData) {
+            baselineChildData.buildType = 'baseline';
+            const buildNameWithPlatform = baselineChildData.buildName.slice(
+                0,
+                lastIndexOf('_')
+            );
+            if (!baselineJavaVersionMap.has(buildNameWithPlatform)) {
+                let baselineGrandchildrenData = await fetchData(
+                    `/api/getChildBuilds?parentId=${baselineChildData._id}`
+                );
+                for (const baselineGrandchildData of baselineGrandchildrenData) {
+                    if (
+                        baselineGrandchildData.buildName.includes(
+                            `_${originBaselineBuildType}`
+                        ) &&
+                        baselineGrandchildData.javaVersion
+                    ) {
+                        const curbuildNameWithPlatform =
+                            removeAfterSecondLastUnderscore(
+                                baselineGrandchildData.buildName
+                            );
+                        baselineJavaVersionMap.set(
+                            curbuildNameWithPlatform,
+                            baselineGrandchildData.javaVersion
+                        );
+                        break;
+                    }
+                }
+            }
+            console.log(baselineJavaVersionMap);
+        }
+
+        // test2ndLevelBuildId = testData[0]._id;
+        // test2ndData = await fetchData(
+        //     `/api/getChildBuilds?parentId=${test2ndLevelBuildId}`
+        // );
+
+        // baseline2ndLevelBuildId = baselineData[0]._id;
+
+        // let testJavaVersion = '';
+        // let baselineJavaVersion = '';
+
         const metricPropsJSON = await fetchData(`/api/getBenchmarkMetricProps`);
         const modifiedData = [...testData, ...baselineData]
             .map(
@@ -91,6 +166,11 @@ function TrafficLight() {
                         0,
                         parentBuildName.lastIndexOf('_')
                     );
+                    const javaVersion =
+                        buildType === 'test'
+                            ? testJavaVersionMap.get(buildNameTitle)
+                            : baselineJavaVersionMap.get(buildNameTitle);
+                    // const javaVersion = testJavaVersionMap.get(buildNameTitle);
                     return aggregateInfo.metrics.map(
                         ({ name: metricsName, statValues, rawValues }) => {
                             let higherbetter = true;
@@ -117,6 +197,7 @@ function TrafficLight() {
                                 buildName,
                                 platform,
                                 higherbetter,
+                                javaVersion,
                             };
                         }
                     );
@@ -168,6 +249,8 @@ function TrafficLight() {
             const totalCI =
                 Number((testValues.CI + baselineValues.CI) * 100).toFixed(2) +
                 '%';
+            const testJavaVersion = testBuild.javaVersion;
+            const baselineJaveVersion = baselineBuild.javaVersion;
             let icon = iconRed;
             if (percentage > 98) {
                 icon = iconGreen;
@@ -183,7 +266,9 @@ function TrafficLight() {
                             <br />
                             Test CI: {testCI} <br />
                             Baseline CI: {baselineCI} <br />
-                            Total CI: {totalCI}
+                            Total CI: {totalCI} <br />
+                            Test JavaVersion: {testJavaVersion} <br />
+                            Baseline JavaVersion: {baselineJaveVersion}
                         </pre>
                     }
                 >
